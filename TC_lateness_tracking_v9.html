@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="TC Tracker">
+<link rel="apple-touch-icon" href="https://cdn.jsdelivr.net/npm/emoji-datasource-apple/img/apple/64/1f4cb.png">
+<title>TC Lateness Tracker</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f0f2f5; padding: 16px;
+    max-width: 1100px; margin: 0 auto; color: #333; min-height: 100vh;
+  }
+  /* LOGIN */
+  #loginScreen {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; min-height: 85vh;
+  }
+  .login-card {
+    background: white; border-radius: 16px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+    padding: 36px 32px 28px; width: 100%; max-width: 360px;
+    display: flex; flex-direction: column; align-items: center; gap: 16px;
+  }
+  .login-card h2 { font-size: 20px; color: #222; }
+  .login-card p  { font-size: 13px; color: #888; text-align: center; }
+  .login-input {
+    width: 100%; padding: 12px 14px; border: 1.5px solid #ddd; border-radius: 8px;
+    font-size: 16px; color: #333; background: #fafafa;
+    -webkit-appearance: none; transition: border-color 0.2s;
+  }
+  .login-input:focus { outline: none; border-color: #4A90D9; background: white; }
+  .login-btn {
+    width: 100%; background: #4A90D9; color: white; border: none;
+    padding: 13px; border-radius: 8px; font-size: 16px; font-weight: 600;
+    cursor: pointer; min-height: 48px;
+  }
+  .login-btn:hover { background: #357ABD; }
+  .login-error { color: #e74c3c; font-size: 13px; text-align: center; display: none; }
+  .admin-toggle { font-size: 12px; color: #bbb; cursor: pointer; text-decoration: underline; }
+  .admin-section { width: 100%; display: none; flex-direction: column; gap: 8px; }
+  .admin-section.visible { display: flex; }
+  .admin-label { font-size: 11px; color: #aaa; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  /* TOP BAR */
+  #appScreen { display: none; }
+  .top-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 18px; flex-wrap: wrap; gap: 8px;
+  }
+  .top-bar h1 { font-size: 20px; }
+  .top-bar-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .user-pill {
+    background: white; border-radius: 20px; padding: 5px 12px;
+    font-size: 13px; font-weight: 600;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .role-badge {
+    display: inline-block; padding: 2px 8px; border-radius: 20px;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
+  }
+  .badge-admin { background: #fff3cd; color: #856404; }
+  .badge-user  { background: #e8f4fd; color: #1a6fa3; }
+  .sync-status { font-size: 11px; color: #aaa; white-space: nowrap; }
+  .sync-status.syncing { color: #f39c12; }
+  .sync-status.ok      { color: #27ae60; }
+  .sync-status.err     { color: #e74c3c; }
+  .logout-btn {
+    background: none; border: 1px solid #ddd; color: #888;
+    padding: 5px 12px; border-radius: 20px; font-size: 12px;
+    cursor: pointer; min-height: 30px;
+  }
+  .logout-btn:hover { background: #f5f5f5; color: #333; }
+  /* ADMIN BAR */
+  .admin-bar {
+    background: #fff8e1; border: 1px solid #ffe082; border-radius: 8px;
+    padding: 8px 14px; margin-bottom: 16px; font-size: 13px; color: #7a5c00;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  .admin-bar strong { font-weight: 700; }
+  .user-filter-select {
+    padding: 4px 8px; border: 1px solid #ffe082; border-radius: 6px;
+    font-size: 13px; background: white; color: #333; cursor: pointer;
+  }
+  /* CARDS */
+  .person-card {
+    background: white; border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 24px;
+  }
+  .person-header {
+    padding: 14px 18px; display: flex; align-items: center;
+    gap: 10px; cursor: pointer; user-select: none; border-radius: 10px;
+  }
+  .person-header .avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 15px; color: white; flex-shrink: 0;
+  }
+  /* Admin: editable name input in header */
+  .person-header .name-edit {
+    font-size: 16px; font-weight: 600; flex: 1; min-width: 0;
+    border: none; border-bottom: 2px solid transparent;
+    background: transparent; padding: 4px 6px; border-radius: 4px;
+    -webkit-appearance: none; color: #222;
+  }
+  .person-header .name-edit:focus {
+    outline: none; border-bottom-color: #f39c12; background: #fffde7;
+  }
+  /* Regular user: plain label */
+  .person-header .name-label {
+    font-size: 16px; font-weight: 600; flex: 1; min-width: 0; padding: 4px 6px;
+  }
+  .person-header .summary {
+    font-size: 12px; color: #666; text-align: right; flex-shrink: 0; white-space: nowrap;
+  }
+  .person-header .summary strong { font-size: 15px; }
+  .collapse-icon {
+    margin-left: 4px; transition: transform 0.3s; font-size: 14px; color: #999; flex-shrink: 0;
+  }
+  .person-card.collapsed .collapse-icon { transform: rotate(-90deg); }
+  .person-card.collapsed .person-body  { display: none; }
+  .person-body {
+    padding: 0 14px 18px 14px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  }
+  @media (max-width: 900px) { .person-body { grid-template-columns: 1fr; } }
+  .mini-section { border: 1px solid #eee; border-radius: 8px; overflow: hidden; }
+  .mini-section h4 {
+    background: #fafafa; padding: 8px 12px;
+    font-size: 13px; color: #555; border-bottom: 1px solid #eee;
+  }
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .mini-section table {
+    width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 260px;
+  }
+  .mini-section th {
+    background: #f5f5f5; padding: 5px 6px; text-align: left;
+    font-size: 11px; border-bottom: 1px solid #ddd; color: #666;
+  }
+  .mini-section td {
+    padding: 3px 6px; border-bottom: 1px solid #f5f5f5;
+    font-size: 13px; vertical-align: middle;
+  }
+  .mini-section tr.other-user td { background: #fafafa; color: #aaa; }
+  .mini-section tr.other-user input,
+  .mini-section tr.other-user select { background: #f5f5f5; color: #bbb; pointer-events: none; border-color: #eee; }
+  .other-badge {
+    display: inline-block; font-size: 10px; color: #bbb;
+    background: #f0f0f0; border-radius: 4px; padding: 1px 5px; margin-left: 4px;
+  }
+  .mini-section input[type="date"],
+  .mini-section input[type="text"],
+  .mini-section select {
+    width: 100%; padding: 4px; border: 1px solid #ddd; border-radius: 3px;
+    font-size: 16px; -webkit-appearance: none; background: white; color: #333;
+  }
+  .mini-section input:focus, .mini-section select:focus { outline: none; border-color: #4A90D9; }
+  .stat-label { font-weight: 600; color: #555; font-size: 12px; }
+  .stat-value {
+    background: #f9f9f9; padding: 3px 8px; border-radius: 3px;
+    font-weight: bold; font-size: 12px; color: #2a2a2a;
+  }
+  .note { color: #999; font-size: 11px; font-style: italic; }
+  button {
+    background: #4A90D9; color: white; border: none;
+    padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; min-height: 36px;
+  }
+  button:hover { background: #357ABD; }
+  .delete-btn {
+    background: none; color: #e74c3c; padding: 4px 8px;
+    font-size: 13px; min-height: 36px; min-width: 36px;
+  }
+  .color-hint {
+    background: #fffde7; border-left: 3px solid #ffc107;
+    padding: 4px 8px; font-size: 11px; color: #888; margin-top: 6px;
+  }
+  .stats-table { margin-top: 8px; width: 100%; }
+  .stats-table td { padding: 3px 6px; font-size: 12px; }
+  .avatar-0 { background: #E74C3C; }
+  .avatar-1 { background: #3498DB; }
+  .avatar-2 { background: #2ECC71; }
+  .avatar-3 { background: #F39C12; }
+  .header-0 { border-left: 4px solid #E74C3C !important; }
+  .header-1 { border-left: 4px solid #3498DB !important; }
+  .header-2 { border-left: 4px solid #2ECC71 !important; }
+  .header-3 { border-left: 4px solid #F39C12 !important; }
+  #errorBanner {
+    background: #fde8e8; border: 1px solid #e74c3c; color: #c0392b;
+    padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; display: none;
+  }
+  .name-hint { font-size: 10px; color: #f39c12; margin-left: 6px; font-style: italic; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div style="font-size:42px;">📋</div>
+    <h2>TC Lateness Tracker</h2>
+    <p>Enter your name to access your entries</p>
+    <input class="login-input" id="nameInput" type="text"
+           placeholder="Your name (e.g. Marie)"
+           autocomplete="off" autocorrect="off" spellcheck="false">
+    <span class="admin-toggle" id="adminToggle">Admin? Enter code →</span>
+    <div class="admin-section" id="adminSection">
+      <span class="admin-label">🔐 Admin code</span>
+      <input class="login-input" id="adminCodeInput" type="password" placeholder="Enter admin code">
+    </div>
+    <div class="login-error" id="loginError"></div>
+    <button class="login-btn" id="loginBtn">Continue →</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="appScreen">
+  <div class="top-bar">
+    <h1>📋 TC Lateness Tracker</h1>
+    <div class="top-bar-right">
+      <div class="user-pill">
+        <span id="userPillName">—</span>
+        <span id="userPillBadge" class="role-badge badge-user">user</span>
+      </div>
+      <span class="sync-status" id="syncStatus">⏳ loading…</span>
+      <button class="logout-btn" id="logoutBtn">Log out</button>
+    </div>
+  </div>
+
+  <div class="admin-bar" id="adminBar" style="display:none;">
+    🔐 <strong>Admin view</strong> — showing entries from:
+    <select class="user-filter-select" id="userFilter">
+      <option value="__all__">All users combined</option>
+    </select>
+    <span style="margin-left:8px;font-size:11px;color:#a07800;">✏️ Click person names above to rename them</span>
+  </div>
+
+  <div id="errorBanner"></div>
+  <div id="peopleContainer"></div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+// CONFIG
+// ══════════════════════════════════════════
+var SUPABASE_URL = 'https://sciovxpbhjrkfztjjuhw.supabase.co';
+var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNjaW92eHBiaGpya2Z6dGpqdWh3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1ODg3ODMsImV4cCI6MjA5NjE2NDc4M30.sHd-b9uCk5yNVcRg95-7BAFK0JUQbsiiM2w__Wv6lIc';
+var ADMIN_CODE   = 'TC-7841';
+var WORKDAYS_PER_MONTH = 22;
+var AVATAR_COLORS = ['#E74C3C','#3498DB','#2ECC71','#F39C12'];
+var DEFAULT_PERSON_NAMES = ['Person A','Person B','Person C','Person D'];
+
+// ══════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════
+var currentUser  = null;
+var myData       = null;
+var allUsersData = [];
+var personNames  = ['Person A','Person B','Person C','Person D']; // loaded from Supabase
+var saveTimer    = null;
+var saveNamesTimer = null;
+var adminFilter  = '__all__';
+
+// ══════════════════════════════════════════
+// SUPABASE HELPERS
+// ══════════════════════════════════════════
+function sbH() {
+  return {
+    'apikey': SUPABASE_KEY,
+    'Authorization': 'Bearer ' + SUPABASE_KEY,
+    'Content-Type': 'application/json'
+  };
+}
+async function sbFetchMine(userId) {
+  var res = await fetch(SUPABASE_URL + '/rest/v1/user_entries?id=eq.' + encodeURIComponent(userId), { headers: sbH() });
+  if (!res.ok) throw new Error('Fetch failed ' + res.status);
+  var rows = await res.json();
+  return rows.length ? rows[0] : null;
+}
+async function sbFetchAll() {
+  var res = await fetch(SUPABASE_URL + '/rest/v1/user_entries?order=display_name', { headers: sbH() });
+  if (!res.ok) throw new Error('Fetch failed ' + res.status);
+  return await res.json();
+}
+async function sbUpsert(row) {
+  var res = await fetch(SUPABASE_URL + '/rest/v1/user_entries', {
+    method: 'POST',
+    headers: Object.assign({}, sbH(), { 'Prefer': 'resolution=merge-duplicates,return=minimal' }),
+    body: JSON.stringify(row)
+  });
+  if (!res.ok) throw new Error('Save failed ' + res.status + ': ' + await res.text());
+}
+// Person names stored in a separate config row id='__config__'
+async function sbFetchConfig() {
+  var res = await fetch(SUPABASE_URL + '/rest/v1/user_entries?id=eq.__config__', { headers: sbH() });
+  if (!res.ok) return null;
+  var rows = await res.json();
+  return rows.length ? rows[0] : null;
+}
+async function sbSaveConfig(names) {
+  await sbUpsert({ id: '__config__', display_name: '__config__', method2: names, method1: [], updated_at: new Date().toISOString() });
+}
+
+// ══════════════════════════════════════════
+// LOGIN
+// ══════════════════════════════════════════
+document.getElementById('adminToggle').addEventListener('click', function() {
+  document.getElementById('adminSection').classList.toggle('visible');
+});
+document.getElementById('loginBtn').addEventListener('click', doLogin);
+document.getElementById('nameInput').addEventListener('keydown', function(e) { if (e.key === 'Enter') doLogin(); });
+
+async function doLogin() {
+  var name  = (document.getElementById('nameInput').value || '').trim();
+  var code  = (document.getElementById('adminCodeInput').value || '').trim();
+  var errEl = document.getElementById('loginError');
+  errEl.style.display = 'none';
+  if (!name) { errEl.textContent = 'Please enter your name.'; errEl.style.display = 'block'; return; }
+
+  var isAdmin = (code === ADMIN_CODE);
+  var userId  = name.toLowerCase().replace(/\s+/g, '_');
+
+  setSyncStatus('syncing', '⏳ connecting…');
+  document.getElementById('loginBtn').textContent = '…';
+  document.getElementById('loginBtn').disabled = true;
+
+  try {
+    // Load config (person names)
+    var cfg = await sbFetchConfig();
+    if (cfg && Array.isArray(cfg.method2) && cfg.method2.length === 4) {
+      personNames = cfg.method2;
+    } else {
+      personNames = DEFAULT_PERSON_NAMES.slice();
+    }
+
+    // Load or create user row
+    var row = await sbFetchMine(userId);
+    if (!row) {
+      row = { id: userId, display_name: name, method2: [[],[],[],[]], method1: [[],[],[],[]], updated_at: new Date().toISOString() };
+      await sbUpsert(row);
+    }
+    myData = normaliseRow(row);
+
+    if (isAdmin) {
+      allUsersData = (await sbFetchAll()).map(normaliseRow).filter(function(r){ return r.id !== '__config__'; });
+    }
+
+    currentUser = { name: name, userId: userId, isAdmin: isAdmin };
+
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('appScreen').style.display   = 'block';
+    document.getElementById('userPillName').textContent  = name;
+    document.getElementById('userPillBadge').textContent = isAdmin ? 'admin' : 'user';
+    document.getElementById('userPillBadge').className   = 'role-badge ' + (isAdmin ? 'badge-admin' : 'badge-user');
+    setSyncStatus('ok', '✓ synced');
+
+    if (isAdmin) {
+      var adminBar = document.getElementById('adminBar');
+      adminBar.style.display = 'flex';
+      rebuildUserFilter();
+      document.getElementById('userFilter').addEventListener('change', function() {
+        adminFilter = this.value;
+        buildAll();
+      });
+    }
+
+    buildAll();
+  } catch(e) {
+    errEl.textContent = 'Connection error: ' + e.message;
+    errEl.style.display = 'block';
+    setSyncStatus('err', '❌ offline');
+  }
+  document.getElementById('loginBtn').textContent = 'Continue →';
+  document.getElementById('loginBtn').disabled = false;
+}
+
+document.getElementById('logoutBtn').addEventListener('click', function() {
+  currentUser = null; myData = null; allUsersData = []; adminFilter = '__all__';
+  personNames = DEFAULT_PERSON_NAMES.slice();
+  document.getElementById('appScreen').style.display   = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('adminBar').style.display    = 'none';
+  document.getElementById('nameInput').value           = '';
+  document.getElementById('adminCodeInput').value      = '';
+  document.getElementById('adminSection').classList.remove('visible');
+  document.getElementById('loginError').style.display  = 'none';
+  document.getElementById('peopleContainer').innerHTML = '';
+});
+
+function rebuildUserFilter() {
+  var sel = document.getElementById('userFilter');
+  var cur = sel.value || '__all__';
+  sel.innerHTML = '<option value="__all__">All users combined</option>';
+  allUsersData.forEach(function(r) {
+    var opt = document.createElement('option');
+    opt.value = r.id; opt.textContent = r.display_name; sel.appendChild(opt);
+  });
+  sel.value = cur;
+}
+
+// ══════════════════════════════════════════
+// SAVE
+// ══════════════════════════════════════════
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  setSyncStatus('syncing', '⏳ saving…');
+  saveTimer = setTimeout(async function() {
+    try {
+      await sbUpsert({ id: myData.id, display_name: myData.display_name, method2: myData.method2, method1: myData.method1, updated_at: new Date().toISOString() });
+      if (currentUser.isAdmin) {
+        allUsersData = (await sbFetchAll()).map(normaliseRow).filter(function(r){ return r.id !== '__config__'; });
+        rebuildUserFilter();
+      }
+      setSyncStatus('ok', '✓ synced ' + new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}));
+    } catch(e) { setSyncStatus('err','❌ save failed'); showError('Auto-save failed: ' + e.message); }
+  }, 1200);
+}
+
+function scheduleNamesSave() {
+  clearTimeout(saveNamesTimer);
+  setSyncStatus('syncing', '⏳ saving…');
+  saveNamesTimer = setTimeout(async function() {
+    try {
+      await sbSaveConfig(personNames);
+      setSyncStatus('ok', '✓ synced ' + new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}));
+    } catch(e) { setSyncStatus('err','❌ name save failed'); showError('Name save failed: ' + e.message); }
+  }, 800);
+}
+
+function setSyncStatus(cls, txt) {
+  var el = document.getElementById('syncStatus');
+  if (!el) return;
+  el.className = 'sync-status ' + cls; el.textContent = txt;
+}
+function showError(msg) {
+  var el = document.getElementById('errorBanner');
+  if (!el) return;
+  el.textContent = msg; el.style.display = 'block';
+  setTimeout(function(){ el.style.display = 'none'; }, 7000);
+}
+
+// ══════════════════════════════════════════
+// DATA HELPERS
+// ══════════════════════════════════════════
+function normaliseRow(row) {
+  var m2 = row.method2 || [[],[],[],[]];
+  var m1 = row.method1 || [[],[],[],[]];
+  while (m2.length < 4) m2.push([]);
+  while (m1.length < 4) m1.push([]);
+  return { id: row.id, display_name: row.display_name, method2: m2, method1: m1 };
+}
+
+function escapeHTML(str) {
+  var d = document.createElement('div'); d.textContent = str || ''; return d.innerHTML;
+}
+
+function getDisplayData(p) {
+  if (!currentUser.isAdmin) {
+    return {
+      m2: (myData.method2[p]||[]).map(function(d){ return {val:d, owner:currentUser.userId, mine:true}; }),
+      m1: (myData.method1[p]||[]).map(function(e){ return {date:e.date,check:e.check,late:e.late,owner:currentUser.userId,mine:true}; })
+    };
+  }
+  var sources = (adminFilter==='__all__') ? allUsersData : allUsersData.filter(function(r){ return r.id===adminFilter; });
+  var m2All=[], m1All=[];
+  sources.forEach(function(r) {
+    (r.method2[p]||[]).forEach(function(d){ if(d) m2All.push({val:d,owner:r.id,ownerName:r.display_name,mine:r.id===currentUser.userId}); });
+    (r.method1[p]||[]).forEach(function(e){ if(e.date) m1All.push({date:e.date,check:e.check,late:e.late,owner:r.id,ownerName:r.display_name,mine:r.id===currentUser.userId}); });
+  });
+  m2All.sort(function(a,b){ return a.val<b.val?-1:1; });
+  m1All.sort(function(a,b){ return a.date<b.date?-1:1; });
+  return {m2:m2All, m1:m1All};
+}
+
+// ══════════════════════════════════════════
+// BUILD UI
+// ══════════════════════════════════════════
+function buildAll() {
+  var container = document.getElementById('peopleContainer');
+  container.innerHTML = '';
+  for (var p = 0; p < 4; p++) {
+    var card = document.createElement('div');
+    card.className = 'person-card';
+    card.setAttribute('data-p', p);
+    card.innerHTML = buildPersonHTML(p);
+    container.appendChild(card);
+  }
+  updateAllStats();
+}
+
+function buildPersonHTML(p) {
+  var dd   = getDisplayData(p);
+  var m2   = dd.m2;
+  var m1   = dd.m1;
+  var name = personNames[p] || ('Person ' + (p+1));
+  var isAdmin = currentUser && currentUser.isAdmin;
+
+  // Name element: editable input for admin, plain span for users
+  var nameEl = isAdmin
+    ? '<input class="name-edit" data-p="' + p + '" value="' + escapeHTML(name) + '" placeholder="Name..." title="Click to rename">'
+    : '<span class="name-label">' + escapeHTML(name) + '</span>';
+
+  // M2 rows
+  var myM2 = myData.method2[p] || [];
+  var m2Rows = '';
+  m2.forEach(function(item, idx) {
+    var isMine   = item.mine;
+    var interval = (idx > 0 && m2[idx-1]) ? getWorkdaysBetween(m2[idx-1].val, item.val) : null;
+    var iText    = (idx === 0) ? '—' : (interval !== null ? interval + 'd' : '—');
+    var ownerTag = (!isMine && isAdmin) ? '<span class="other-badge">' + escapeHTML(item.ownerName) + '</span>' : '';
+    var myIdx    = isMine ? myM2.indexOf(item.val) : -1;
+    m2Rows += '<tr data-p="' + p + '" data-type="m2" data-myidx="' + myIdx + '" class="' + (isMine?'':'other-user') + '">'
+      + '<td style="width:24px;text-align:center;color:#999;font-size:11px;">' + (idx+1) + '</td>'
+      + '<td><input type="date" class="m2-date" data-p="' + p + '" data-myidx="' + myIdx + '" value="' + (item.val||'') + '"' + (isMine?'':' disabled') + '>' + ownerTag + '</td>'
+      + '<td style="width:44px;font-size:11px;color:#666;">' + iText + '</td>'
+      + '<td style="width:36px;">' + (isMine ? '<button class="delete-btn m2-delete" data-p="' + p + '" data-myidx="' + myIdx + '">✕</button>' : '') + '</td>'
+      + '</tr>';
+  });
+  m2Rows += '<tr data-p="' + p + '" data-type="m2-new">'
+    + '<td style="width:24px;text-align:center;color:#ccc;font-size:11px;">+</td>'
+    + '<td><input type="date" class="m2-new-date" data-p="' + p + '"></td>'
+    + '<td style="width:44px;"></td><td style="width:36px;"></td></tr>';
+
+  // M1 rows
+  var myM1 = myData.method1[p] || [];
+  var m1Rows = '';
+  m1.forEach(function(item) {
+    var isMine   = item.mine;
+    var myIdx    = isMine ? myM1.findIndex(function(e){ return e.date===item.date && e.check===item.check && e.late===item.late; }) : -1;
+    var ownerTag = (!isMine && isAdmin) ? '<span class="other-badge">' + escapeHTML(item.ownerName) + '</span>' : '';
+    m1Rows += '<tr data-p="' + p + '" data-type="m1" data-myidx="' + myIdx + '" class="' + (isMine?'':'other-user') + '">'
+      + '<td><input type="date" class="m1-date" data-p="' + p + '" data-myidx="' + myIdx + '" value="' + (item.date||'') + '"' + (isMine?'':' disabled') + '>' + ownerTag + '</td>'
+      + '<td style="width:60px;"><select class="m1-check" data-p="' + p + '" data-myidx="' + myIdx + '"' + (isMine?'':' disabled') + '>'
+      + '<option value="Yes"' + (item.check==='Yes'?' selected':'') + '>Yes</option>'
+      + '<option value="No"'  + (item.check==='No' ?' selected':'') + '>No</option>'
+      + '</select></td>'
+      + '<td style="width:60px;"><input type="text" class="m1-late" data-p="' + p + '" data-myidx="' + myIdx + '" value="' + escapeHTML(item.late) + '" placeholder="Yes/No"' + (isMine?'':' disabled') + '></td>'
+      + '<td style="width:36px;">' + (isMine ? '<button class="delete-btn m1-delete" data-p="' + p + '" data-myidx="' + myIdx + '">✕</button>' : '') + '</td>'
+      + '</tr>';
+  });
+  m1Rows += '<tr data-p="' + p + '" data-type="m1-new">'
+    + '<td><input type="date" class="m1-new-date" data-p="' + p + '"></td>'
+    + '<td style="width:60px;"><select class="m1-new-check" data-p="' + p + '"><option value="Yes">Yes</option><option value="No">No</option></select></td>'
+    + '<td style="width:60px;"><input type="text" class="m1-new-late" data-p="' + p + '" placeholder="Yes/No"></td>'
+    + '<td style="width:36px;"></td></tr>';
+
+  return ''
+    + '<div class="person-header header-' + p + '" style="border-radius:10px;" data-toggle="' + p + '">'
+    + '<div class="avatar avatar-' + p + '">' + escapeHTML(name).charAt(0).toUpperCase() + '</div>'
+    + nameEl
+    + '<div class="summary">'
+    + '<span class="m2-summary-' + p + '" style="margin-right:8px;">M2: <strong>—</strong></span>'
+    + '<span class="m1-summary-' + p + '">M1: <strong>—</strong></span>'
+    + '</div>'
+    + '<span class="collapse-icon">▼</span>'
+    + '</div>'
+    + '<div class="person-body">'
+    + '<div class="mini-section"><h4>🔴 Method 2: Lateness Log</h4>'
+    + '<div class="table-scroll"><table>'
+    + '<thead><tr><th style="width:24px;">#</th><th>Date</th><th style="width:44px;">Δd</th><th style="width:36px;"></th></tr></thead>'
+    + '<tbody>' + m2Rows + '</tbody></table></div>'
+    + '<div class="color-hint">💡 Only fill in dates when late. New entries go in the + row at the bottom.</div>'
+    + '<table class="stats-table">'
+    + '<tr><td class="stat-label">Total Late:</td><td><span class="stat-value m2-count-' + p + '">—</span></td></tr>'
+    + '<tr><td class="stat-label">Avg Interval:</td><td><span class="stat-value m2-interval-' + p + '">—</span></td></tr>'
+    + '<tr><td class="stat-label">Est. Monthly:</td><td><span class="stat-value m2-est-' + p + '">—</span> <span class="note">days</span></td></tr>'
+    + '</table></div>'
+    + '<div class="mini-section"><h4>🔵 Method 1: Spot Check</h4>'
+    + '<div class="table-scroll"><table>'
+    + '<thead><tr><th>Date</th><th style="width:60px;">Check?</th><th style="width:60px;">Late?</th><th style="width:36px;"></th></tr></thead>'
+    + '<tbody>' + m1Rows + '</tbody></table></div>'
+    + '<div class="color-hint">💡 Set Check?=Yes on random days. Fill Late? at day end.</div>'
+    + '<table class="stats-table">'
+    + '<tr><td class="stat-label">Checked:</td><td><span class="stat-value m1-checked-' + p + '">—</span> days</td></tr>'
+    + '<tr><td class="stat-label">Late:</td><td><span class="stat-value m1-latecount-' + p + '">—</span> days</td></tr>'
+    + '<tr><td class="stat-label">Ratio:</td><td><span class="stat-value m1-ratio-' + p + '">—</span></td></tr>'
+    + '<tr><td class="stat-label">Est. Monthly:</td><td><span class="stat-value m1-est-' + p + '">—</span> days</td></tr>'
+    + '<tr><td class="stat-label">95% CI:</td><td><span class="stat-value m1-ci-' + p + '">—</span></td></tr>'
+    + '</table></div>'
+    + '</div>';
+}
+
+// ══════════════════════════════════════════
+// EVENTS (delegated)
+// ══════════════════════════════════════════
+document.getElementById('peopleContainer').addEventListener('click', function(e) {
+  var t = e.target;
+  var header = t.closest('[data-toggle]');
+  if (header && t.tagName !== 'INPUT' && t.tagName !== 'BUTTON' && t.tagName !== 'SELECT') {
+    var card = header.closest('.person-card');
+    if (card) card.classList.toggle('collapsed');
+    return;
+  }
+  if (t.classList.contains('m2-delete')) {
+    e.stopPropagation();
+    var p = parseInt(t.dataset.p), mi = parseInt(t.dataset.myidx);
+    if (mi >= 0) { myData.method2[p].splice(mi,1); scheduleSave(); buildAll(); }
+    return;
+  }
+  if (t.classList.contains('m1-delete')) {
+    e.stopPropagation();
+    var p = parseInt(t.dataset.p), mi = parseInt(t.dataset.myidx);
+    if (mi >= 0) { myData.method1[p].splice(mi,1); scheduleSave(); buildAll(); }
+    return;
+  }
+});
+
+document.getElementById('peopleContainer').addEventListener('change', function(e) {
+  var t = e.target;
+  var p = parseInt(t.dataset.p);
+  if (isNaN(p)) return;
+
+  // ── Admin renames a person ──
+  if (t.classList.contains('name-edit')) {
+    personNames[p] = t.value.trim() || DEFAULT_PERSON_NAMES[p];
+    // update avatar initial live
+    var card = t.closest('.person-card');
+    if (card) {
+      var av = card.querySelector('.avatar');
+      if (av) av.textContent = personNames[p].charAt(0).toUpperCase();
+    }
+    scheduleNamesSave();
+    return;
+  }
+
+  if (t.classList.contains('m2-date')) {
+    var mi = parseInt(t.dataset.myidx);
+    if (mi >= 0) { myData.method2[p][mi] = t.value; scheduleSave(); updateAllStats(); }
+    return;
+  }
+  if (t.classList.contains('m2-new-date') && t.value) {
+    myData.method2[p].push(t.value);
+    myData.method2[p].sort();
+    scheduleSave(); buildAll();
+    return;
+  }
+  if (t.classList.contains('m1-date') || t.classList.contains('m1-check') || t.classList.contains('m1-late')) {
+    var mi = parseInt(t.dataset.myidx);
+    if (mi >= 0) {
+      var row = t.closest('tr');
+      myData.method1[p][mi] = {
+        date:  row.querySelector('.m1-date').value,
+        check: row.querySelector('.m1-check').value,
+        late:  row.querySelector('.m1-late').value
+      };
+      scheduleSave(); updateAllStats();
+    }
+    return;
+  }
+  if (t.classList.contains('m1-new-date') && t.value) {
+    var row = t.closest('tr');
+    myData.method1[p].push({ date: t.value, check: row.querySelector('.m1-new-check').value, late: row.querySelector('.m1-new-late').value });
+    scheduleSave(); buildAll();
+    return;
+  }
+  if (t.classList.contains('m1-new-check') || t.classList.contains('m1-new-late')) {
+    var row = t.closest('tr');
+    var d   = row.querySelector('.m1-new-date');
+    if (d && d.value) {
+      myData.method1[p].push({ date: d.value, check: row.querySelector('.m1-new-check').value, late: row.querySelector('.m1-new-late').value });
+      scheduleSave(); buildAll();
+    }
+    return;
+  }
+});
+
+// Also handle input event for name-edit (live avatar update already in change, but keep responsive)
+document.getElementById('peopleContainer').addEventListener('input', function(e) {
+  var t = e.target;
+  if (t.classList.contains('name-edit')) {
+    var p = parseInt(t.dataset.p);
+    if (!isNaN(p)) {
+      var card = t.closest('.person-card');
+      if (card) {
+        var av = card.querySelector('.avatar');
+        if (av) av.textContent = (t.value || '?').charAt(0).toUpperCase();
+      }
+    }
+  }
+});
+
+// ══════════════════════════════════════════
+// STATS
+// ══════════════════════════════════════════
+function getWorkdaysBetween(s, e) {
+  if (!s||!e) return null;
+  var sd=new Date(s+'T00:00:00'), ed=new Date(e+'T00:00:00');
+  if (sd>=ed) return 0;
+  sd.setDate(sd.getDate()+1);
+  var c=0;
+  while(sd<=ed){var d=sd.getDay();if(d!==0&&d!==6)c++;sd.setDate(sd.getDate()+1);}
+  return c;
+}
+
+function updateAllStats() {
+  for (var p=0;p<4;p++){updateM2Stats(p);updateM1Stats(p);}
+}
+
+function updateM2Stats(p) {
+  var dd=getDisplayData(p);
+  var dates=dd.m2.map(function(x){return x.val;}).filter(Boolean);
+  var count=dates.length;
+  var q=function(c){return document.querySelector('.'+c+p);};
+  if(q('m2-count-'))   q('m2-count-').textContent=count+' times';
+  if(q('m2-summary-')) q('m2-summary-').querySelector('strong').textContent=count+'x';
+  if(count<2){if(q('m2-interval-'))q('m2-interval-').textContent='Need ≥2';if(q('m2-est-'))q('m2-est-').textContent='—';return;}
+  var ivs=[];
+  for(var i=1;i<dates.length;i++){var wd=getWorkdaysBetween(dates[i-1],dates[i]);if(wd!==null&&wd>=0)ivs.push(wd);}
+  if(!ivs.length)return;
+  var avg=ivs.reduce(function(a,b){return a+b;},0)/ivs.length;
+  if(q('m2-interval-'))q('m2-interval-').textContent=avg.toFixed(1)+' days';
+  if(q('m2-est-'))     q('m2-est-').textContent=(WORKDAYS_PER_MONTH/avg).toFixed(1);
+}
+
+function updateM1Stats(p) {
+  var dd=getDisplayData(p);
+  var entries=dd.m1.filter(function(e){return e.date;});
+  var checked=0,late=0;
+  entries.forEach(function(e){
+    if(e.check==='Yes'){checked++;var lv=(e.late||'').trim().toLowerCase();if(lv==='yes'||lv==='y')late++;}
+  });
+  var q=function(c){return document.querySelector('.'+c+p);};
+  if(q('m1-checked-'))  q('m1-checked-').textContent=checked;
+  if(q('m1-latecount-'))q('m1-latecount-').textContent=late;
+  if(checked===0){
+    ['m1-ratio-','m1-est-','m1-ci-'].forEach(function(c){if(q(c))q(c).textContent='—';});
+    if(q('m1-summary-'))q('m1-summary-').querySelector('strong').textContent='—';
+    return;
+  }
+  var ratio=late/checked;
+  if(q('m1-ratio-'))  q('m1-ratio-').textContent=(ratio*100).toFixed(1)+'%';
+  var est=ratio*WORKDAYS_PER_MONTH;
+  if(q('m1-est-'))    q('m1-est-').textContent=est.toFixed(1)+' days';
+  if(q('m1-summary-'))q('m1-summary-').querySelector('strong').textContent=est.toFixed(1)+'d';
+  var se=Math.sqrt(ratio*(1-ratio)/checked);
+  var lo=Math.max(0,ratio-1.96*se),hi=Math.min(1,ratio+1.96*se);
+  if(q('m1-ci-'))q('m1-ci-').textContent=(lo*WORKDAYS_PER_MONTH).toFixed(1)+' – '+(hi*WORKDAYS_PER_MONTH).toFixed(1)+' days';
+}
+</script>
+</body>
+</html>
